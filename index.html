@@ -88,6 +88,28 @@
       cursor: not-allowed;
       transform: none;
     }
+    .reset-btn {
+      background: #ef4444;
+      color: white;
+      padding: 12px 32px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-block;
+      margin-left: 15px;
+    }
+    .reset-btn:hover {
+      background: #dc2626;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    }
+    .reset-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
     input[type="file"] {
       display: none;
     }
@@ -168,6 +190,9 @@
       <label for="fileInput" class="upload-btn" id="uploadLabel">
         📁 ファイルを選択
       </label>
+      <button class="reset-btn" id="resetBtn" onclick="resetData()">
+        🗑️ データをリセット
+      </button>
       <input type="file" id="fileInput" accept=".xlsx,.xls">
       <p style="margin-top: 15px; font-size: 14px; color: #9ca3af;">
         ※ アップロードしたデータは全員で共有されます
@@ -295,6 +320,27 @@
       });
       
       return result;
+    }
+    
+    async function resetData() {
+      if (!confirm('本当にすべてのデータを削除しますか？\nこの操作は取り消せません。')) {
+        return;
+      }
+      
+      const resetBtn = document.getElementById('resetBtn');
+      resetBtn.disabled = true;
+      resetBtn.textContent = '削除中...';
+      
+      try {
+        await surveyRef.remove();
+        alert('✅ データを削除しました');
+      } catch (error) {
+        alert('❌ エラー: ' + error.message);
+        console.error(error);
+      }
+      
+      resetBtn.disabled = false;
+      resetBtn.textContent = '🗑️ データをリセット';
     }
     
     function renderNoData() {
