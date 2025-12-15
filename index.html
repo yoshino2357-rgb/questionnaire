@@ -356,17 +356,36 @@
       
       keys.forEach(key => {
         const values = {};
+        const allResponses = [];
+        
         data.forEach(row => {
           const value = row[key];
           if (value !== undefined && value !== null && value !== '') {
             values[value] = (values[value] || 0) + 1;
+            allResponses.push(value);
           }
         });
         
-        result[key] = Object.entries(values).map(([name, value]) => ({
-          name: String(name),
-          value: value
-        }));
+        // 回答の種類が多い（全体の50%以上がユニーク）→ 自由記述と判断
+        const uniqueCount = Object.keys(values).length;
+        const totalCount = allResponses.length;
+        
+        if (uniqueCount > totalCount * 0.5 && totalCount > 0) {
+          // 自由記述として保存
+          result[key] = {
+            type: 'freetext',
+            responses: allResponses
+          };
+        } else {
+          // 選択式として集計
+          result[key] = {
+            type: 'choice',
+            data: Object.entries(values).map(([name, value]) => ({
+              name: String(name),
+              value: value
+            }))
+          };
+        }
       });
       
       return result;
@@ -421,11 +440,20 @@
         </div>
       `;
       
-      Object.entries(surveyData).forEach(([question, answers]) => {
-        if (answers.length > 0) {
+      Object.entries(surveyData).forEach(([question, questionData]) => {
+        if (questionData.type === 'choice' && questionData.data && questionData.data.length > 0) {
+          // 選択式の質問
           html += `
             <div class="chart-section">
               <h2 class="chart-title">${question}</h2>
+              <div class="chart-container" id="chart-${question.replace(/[^a-zA-Z0-9]/g, '')}"></div>
+            </div>
+          `;
+        } else if (questionData.type === 'freetext' && questionData.responses && questionData.responses.length > 0) {
+          // 自由記述の質問
+          html += `
+            <div class="chart-section">
+              <h2 class="chart-title">${question} <span style="font-size: 16px; color: #6b7280;">(${questionData.responses.length}件の回答)</span></h2>
               <div class="chart-container" id="chart-${question.replace(/[^a-zA-Z0-9]/g, '')}"></div>
             </div>
           `;
@@ -434,15 +462,18 @@
       
       document.getElementById('content').innerHTML = html;
       
-      // グラフまたは表を描画
-      Object.entries(surveyData).forEach(([question, answers]) => {
-        if (answers.length > 0) {
-          const chartId = `chart-${question.replace(/[^a-zA-Z0-9]/g, '')}`;
+      // グラフ・表・自由記述を描画
+      Object.entries(surveyData).forEach(([question, questionData]) => {
+        const chartId = `chart-${question.replace(/[^a-zA-Z0-9]/g, '')}`;
+        
+        if (questionData.type === 'choice' && questionData.data && questionData.data.length > 0) {
           if (viewMode === 'chart') {
-            renderSimpleChart(chartId, answers);
+            renderSimpleChart(chartId, questionData.data);
           } else {
-            renderTable(chartId, answers);
+            renderTable(chartId, questionData.data);
           }
+        } else if (questionData.type === 'freetext' && questionData.responses && questionData.responses.length > 0) {
+          renderFreeText(chartId, questionData.responses);
         }
       });
     }
@@ -523,6 +554,25 @@
       `;
       
       container.innerHTML = tableHTML;
+    }
+    
+    function renderFreeText(containerId, responses) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      
+      let html = '<div style="background: white; border-radius: 8px; padding: 10px;">';
+      
+      responses.forEach((response, index) => {
+        html += `
+          <div style="padding: 12px; margin: 8px 0; background: #f9fafb; border-left: 4px solid #667eea; border-radius: 4px;">
+            <span style="color: #9ca3af; font-size: 12px; font-weight: 600;">回答 ${index + 1}</span>
+            <p style="margin: 5px 0 0 0; color: #374151;">${response}</p>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      container.innerHTML = html;
     }
     
     // イベントリスナー
