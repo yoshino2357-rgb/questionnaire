@@ -366,24 +366,25 @@
           }
         });
         
-        // 回答の種類が多い（全体の50%以上がユニーク）→ 自由記述と判断
+        // 回答の種類数と総回答数から判定
         const uniqueCount = Object.keys(values).length;
         const totalCount = allResponses.length;
         
-        if (uniqueCount > totalCount * 0.5 && totalCount > 0) {
-          // 自由記述として保存
-          result[key] = {
-            type: 'freetext',
-            responses: allResponses
-          };
-        } else {
+        // 選択肢が10個以下、または回答の80%以上が重複している場合は選択式
+        if (uniqueCount <= 10 || uniqueCount < totalCount * 0.8) {
           // 選択式として集計
           result[key] = {
             type: 'choice',
             data: Object.entries(values).map(([name, value]) => ({
               name: String(name),
               value: value
-            }))
+            })).sort((a, b) => b.value - a.value) // 多い順にソート
+          };
+        } else {
+          // 自由記述として保存
+          result[key] = {
+            type: 'freetext',
+            responses: allResponses
           };
         }
       });
