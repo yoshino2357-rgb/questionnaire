@@ -1,121 +1,277 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>アンケート集計</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- XLSX -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アンケート集計ツール</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+    }
+    h1 {
+      font-size: 32px;
+      color: #1f2937;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 30px;
+    }
+    .upload-section {
+      background: #f9fafb;
+      border: 2px dashed #d1d5db;
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 30px;
+      transition: all 0.3s;
+    }
+    .upload-section:hover {
+      border-color: #667eea;
+      background: #f3f4f6;
+    }
+    .upload-btn {
+      background: #667eea;
+      color: white;
+      padding: 12px 32px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-block;
+    }
+    .upload-btn:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+      font-size: 18px;
+    }
+    .chart-section {
+      margin: 30px 0;
+      padding: 30px;
+      background: #f9fafb;
+      border-radius: 12px;
+    }
+    .chart-title {
+      font-size: 24px;
+      color: #1f2937;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    .chart-container {
+      width: 100%;
+      height: 400px;
+      margin-top: 20px;
+    }
+    .no-data {
+      text-align: center;
+      padding: 60px 20px;
+      color: #9ca3af;
+    }
+    .no-data-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
-
-<body class="min-h-screen bg-gray-100 p-6">
-  <div class="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl p-6">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">アンケート集計ツール</h1>
-
-    <!-- Upload -->
-    <div class="mb-6">
-      <input type="file" id="fileInput" accept=".xlsx,.xls"
-        class="block w-full border p-2 rounded" />
+<body>
+  <div class="container">
+    <h1>📊 アンケート集計ツール</h1>
+    <p class="subtitle">Excelファイルをアップロードして結果を可視化</p>
+    
+    <div class="upload-section">
+      <p style="margin-bottom: 20px; color: #6b7280;">Excelファイル(.xlsx, .xls)を選択してください</p>
+      <label for="fileInput" class="upload-btn" id="uploadLabel">
+        📁 ファイルを選択
+      </label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
     </div>
 
-    <!-- Loading -->
-    <div id="loading" class="text-center text-gray-500 hidden">読み込み中...</div>
-
-    <!-- Charts -->
-    <div id="charts" class="grid md:grid-cols-2 gap-6"></div>
+    <div id="content">
+      <div class="loading">データを読み込み中...</div>
+    </div>
   </div>
 
-<script>
-const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
-
-let surveyData = null;
-
-// 初期ロード
-window.onload = () => {
-  const saved = localStorage.getItem('survey-data');
-  if (saved) {
-    surveyData = JSON.parse(saved);
-    renderCharts();
-  }
-};
-
-// ファイルアップロード
-document.getElementById("fileInput").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  document.getElementById("loading").classList.remove("hidden");
-
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(sheet);
-
-  surveyData = aggregate(rows);
-  localStorage.setItem("survey-data", JSON.stringify(surveyData));
-
-  renderCharts();
-  document.getElementById("loading").classList.add("hidden");
-});
-
-// 集計処理
-function aggregate(rows) {
-  const result = {};
-
-  rows.forEach(row => {
-    Object.keys(row).forEach(key => {
-      if (!result[key]) result[key] = {};
-      const value = row[key];
-      result[key][value] = (result[key][value] || 0) + 1;
-    });
-  });
-
-  return result;
-}
-
-// グラフ描画
-function renderCharts() {
-  const container = document.getElementById("charts");
-  container.innerHTML = "";
-
-  Object.entries(surveyData).forEach(([question, answers], index) => {
-    const canvasId = "chart" + index;
-
-    container.innerHTML += `
-      <div class="bg-gray-50 rounded-xl p-4">
-        <h2 class="font-bold mb-2">${question}</h2>
-        <canvas id="${canvasId}"></canvas>
-      </div>
-    `;
-
-    const labels = Object.keys(answers);
-    const data = Object.values(answers);
-
-    new Chart(document.getElementById(canvasId), {
-      type: 'pie',
-      data: {
-        labels,
-        datasets: [{
-          data,
-          backgroundColor: COLORS
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'bottom' }
+  <script>
+    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+    
+    let surveyData = null;
+    
+    async function loadSurveyData() {
+      try {
+        const result = await window.storage.get('survey-data', true);
+        if (result && result.value) {
+          surveyData = JSON.parse(result.value);
+          renderContent();
+        } else {
+          renderNoData();
         }
+      } catch (error) {
+        console.log('データがまだありません');
+        renderNoData();
       }
-    });
-  });
-}
-</script>
+    }
+    
+    async function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      document.getElementById('uploadLabel').textContent = '処理中...';
+      document.getElementById('uploadLabel').style.opacity = '0.5';
+      
+      try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // データを集計
+        const aggregated = aggregateData(jsonData);
+        surveyData = aggregated;
+        
+        // 保存
+        await window.storage.set('survey-data', JSON.stringify(aggregated), true);
+        
+        renderContent();
+      } catch (error) {
+        alert('ファイルの処理中にエラーが発生しました: ' + error.message);
+      }
+      
+      document.getElementById('uploadLabel').textContent = '📁 ファイルを選択';
+      document.getElementById('uploadLabel').style.opacity = '1';
+      e.target.value = '';
+    }
+    
+    function aggregateData(data) {
+      // 簡単な集計例（実際のデータ構造に応じて調整が必要）
+      const result = {};
+      
+      if (data.length === 0) return result;
+      
+      const keys = Object.keys(data[0]);
+      
+      keys.forEach(key => {
+        const values = {};
+        data.forEach(row => {
+          const value = row[key];
+          if (value !== undefined && value !== null && value !== '') {
+            values[value] = (values[value] || 0) + 1;
+          }
+        });
+        
+        result[key] = Object.entries(values).map(([name, value]) => ({
+          name: String(name),
+          value: value
+        }));
+      });
+      
+      return result;
+    }
+    
+    function renderNoData() {
+      document.getElementById('content').innerHTML = `
+        <div class="no-data">
+          <div class="no-data-icon">📭</div>
+          <h2 style="color: #6b7280; margin-bottom: 10px;">データがありません</h2>
+          <p>上のボタンからExcelファイルをアップロードしてください</p>
+        </div>
+      `;
+    }
+    
+    function renderContent() {
+      if (!surveyData || Object.keys(surveyData).length === 0) {
+        renderNoData();
+        return;
+      }
+      
+      let html = '';
+      Object.entries(surveyData).forEach(([question, answers]) => {
+        if (answers.length > 0) {
+          html += `
+            <div class="chart-section">
+              <h2 class="chart-title">${question}</h2>
+              <div class="chart-container" id="chart-${question.replace(/[^a-zA-Z0-9]/g, '')}"></div>
+            </div>
+          `;
+        }
+      });
+      
+      document.getElementById('content').innerHTML = html;
+      
+      // グラフを描画（簡易版 - 実際のRechartsの代わりにHTMLで表示）
+      Object.entries(surveyData).forEach(([question, answers]) => {
+        if (answers.length > 0) {
+          const chartId = `chart-${question.replace(/[^a-zA-Z0-9]/g, '')}`;
+          renderSimpleChart(chartId, answers);
+        }
+      });
+    }
+    
+    function renderSimpleChart(containerId, data) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      
+      const maxValue = Math.max(...data.map(d => d.value));
+      
+      let chartHTML = '<div style="padding: 20px;">';
+      data.forEach((item, index) => {
+        const percentage = (item.value / maxValue) * 100;
+        const color = COLORS[index % COLORS.length];
+        
+        chartHTML += `
+          <div style="margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <span style="font-weight: 500; color: #374151;">${item.name}</span>
+              <span style="font-weight: 600; color: ${color};">${item.value}</span>
+            </div>
+            <div style="background: #e5e7eb; border-radius: 4px; height: 24px; overflow: hidden;">
+              <div style="background: ${color}; height: 100%; width: ${percentage}%; transition: width 0.5s;"></div>
+            </div>
+          </div>
+        `;
+      });
+      chartHTML += '</div>';
+      
+      container.innerHTML = chartHTML;
+    }
+    
+    // イベントリスナー
+    document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+    
+    // 初期読み込み
+    loadSurveyData();
+  </script>
 </body>
 </html>
