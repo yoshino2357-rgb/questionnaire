@@ -175,6 +175,55 @@
       font-size: 14px;
       margin-top: 20px;
     }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .data-table th {
+      background: #667eea;
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+    .data-table td {
+      padding: 12px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+    .data-table tr:hover {
+      background: #f9fafb;
+    }
+    .view-toggle {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .toggle-btn {
+      background: #f3f4f6;
+      color: #374151;
+      padding: 8px 20px;
+      border: 2px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin: 0 5px;
+    }
+    .toggle-btn.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+    .toggle-btn:hover {
+      border-color: #667eea;
+    }
   </style>
 </head>
 <body>
@@ -226,6 +275,7 @@
     const surveyRef = database.ref('survey-data');
     
     let surveyData = null;
+    let viewMode = 'chart'; // 'chart' or 'table'
     
     // Firebase接続状態を監視
     const connectedRef = database.ref('.info/connected');
@@ -360,7 +410,17 @@
         return;
       }
       
-      let html = '';
+      let html = `
+        <div class="view-toggle">
+          <button class="toggle-btn ${viewMode === 'chart' ? 'active' : ''}" onclick="switchView('chart')">
+            📊 グラフ表示
+          </button>
+          <button class="toggle-btn ${viewMode === 'table' ? 'active' : ''}" onclick="switchView('table')">
+            📋 表形式
+          </button>
+        </div>
+      `;
+      
       Object.entries(surveyData).forEach(([question, answers]) => {
         if (answers.length > 0) {
           html += `
@@ -374,13 +434,22 @@
       
       document.getElementById('content').innerHTML = html;
       
-      // グラフを描画
+      // グラフまたは表を描画
       Object.entries(surveyData).forEach(([question, answers]) => {
         if (answers.length > 0) {
           const chartId = `chart-${question.replace(/[^a-zA-Z0-9]/g, '')}`;
-          renderSimpleChart(chartId, answers);
+          if (viewMode === 'chart') {
+            renderSimpleChart(chartId, answers);
+          } else {
+            renderTable(chartId, answers);
+          }
         }
       });
+    }
+    
+    function switchView(mode) {
+      viewMode = mode;
+      renderContent();
     }
     
     function renderSimpleChart(containerId, data) {
@@ -408,6 +477,52 @@
       });
       
       container.innerHTML = chartHTML;
+    }
+    
+    function renderTable(containerId, data) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      
+      const total = data.reduce((sum, item) => sum + item.value, 0);
+      
+      let tableHTML = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>回答</th>
+              <th>件数</th>
+              <th>割合</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.forEach((item, index) => {
+        const percentage = ((item.value / total) * 100).toFixed(1);
+        const color = COLORS[index % COLORS.length];
+        
+        tableHTML += `
+          <tr>
+            <td><span style="color: ${color}; font-weight: 600;">●</span> ${item.name}</td>
+            <td style="font-weight: 600;">${item.value}</td>
+            <td>${percentage}%</td>
+          </tr>
+        `;
+      });
+      
+      tableHTML += `
+          </tbody>
+          <tfoot>
+            <tr style="background: #f9fafb; font-weight: 600;">
+              <td>合計</td>
+              <td>${total}</td>
+              <td>100%</td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+      
+      container.innerHTML = tableHTML;
     }
     
     // イベントリスナー
