@@ -486,6 +486,7 @@
       // グラフ・表・自由記述を描画
       Object.entries(surveyData).forEach(([question, questionData]) => {
         const chartId = `chart-${question.replace(/[^a-zA-Z0-9]/g, '')}`;
+        console.log('Processing question:', question, 'chartId:', chartId, 'questionData:', questionData);
         
         if (questionData.type === 'choice' && questionData.data && questionData.data.length > 0) {
           if (viewMode === 'chart') {
