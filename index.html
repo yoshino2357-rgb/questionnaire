@@ -296,6 +296,26 @@
       if (data) {
         surveyData = data.data;
         const timestamp = data.timestamp;
+        
+        // Firebaseの配列がオブジェクトになってる場合の変換
+        if (surveyData) {
+          Object.keys(surveyData).forEach(key => {
+            const questionData = surveyData[key];
+            if (questionData.type === 'choice' && questionData.data) {
+              // オブジェクトを配列に変換
+              if (!Array.isArray(questionData.data)) {
+                questionData.data = Object.values(questionData.data);
+              }
+            }
+            if (questionData.type === 'freetext' && questionData.responses) {
+              // オブジェクトを配列に変換
+              if (!Array.isArray(questionData.responses)) {
+                questionData.responses = Object.values(questionData.responses);
+              }
+            }
+          });
+        }
+        
         renderContent();
         updateLastUpdated(timestamp);
       } else {
