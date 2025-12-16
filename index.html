@@ -464,18 +464,20 @@
       Object.entries(surveyData).forEach(([question, questionData]) => {
         if (questionData.type === 'choice' && questionData.data && questionData.data.length > 0) {
           // 選択式の質問
+          const uniqueId = `chart-${btoa(encodeURIComponent(question)).replace(/[^a-zA-Z0-9]/g, '')}`;
           html += `
             <div class="chart-section">
               <h2 class="chart-title">${question}</h2>
-              <div class="chart-container" id="chart-${question.replace(/[^a-zA-Z0-9]/g, '')}"></div>
+              <div class="chart-container" id="${uniqueId}"></div>
             </div>
           `;
         } else if (questionData.type === 'freetext' && questionData.responses && questionData.responses.length > 0) {
           // 自由記述の質問
+          const uniqueId = `chart-${btoa(encodeURIComponent(question)).replace(/[^a-zA-Z0-9]/g, '')}`;
           html += `
             <div class="chart-section">
               <h2 class="chart-title">${question} <span style="font-size: 16px; color: #6b7280;">(${questionData.responses.length}件の回答)</span></h2>
-              <div class="chart-container" id="chart-${question.replace(/[^a-zA-Z0-9]/g, '')}"></div>
+              <div class="chart-container" id="${uniqueId}"></div>
             </div>
           `;
         }
@@ -485,17 +487,17 @@
       
       // グラフ・表・自由記述を描画
       Object.entries(surveyData).forEach(([question, questionData]) => {
-        const chartId = `chart-${question.replace(/[^a-zA-Z0-9]/g, '')}`;
-        console.log('Processing question:', question, 'chartId:', chartId, 'questionData:', questionData);
+        const uniqueId = `chart-${btoa(encodeURIComponent(question)).replace(/[^a-zA-Z0-9]/g, '')}`;
+        console.log('Processing question:', question, 'uniqueId:', uniqueId, 'questionData:', questionData);
         
         if (questionData.type === 'choice' && questionData.data && questionData.data.length > 0) {
           if (viewMode === 'chart') {
-            renderSimpleChart(chartId, questionData.data);
+            renderSimpleChart(uniqueId, questionData.data);
           } else {
-            renderTable(chartId, questionData.data);
+            renderTable(uniqueId, questionData.data);
           }
         } else if (questionData.type === 'freetext' && questionData.responses && questionData.responses.length > 0) {
-          renderFreeText(chartId, questionData.responses);
+          renderFreeText(uniqueId, questionData.responses);
         }
       });
     }
