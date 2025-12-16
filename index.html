@@ -508,6 +508,13 @@
       const container = document.getElementById(containerId);
       if (!container) return;
       
+      console.log('renderSimpleChart called with:', containerId, data);
+      
+      if (!data || data.length === 0) {
+        container.innerHTML = '<p style="color: #9ca3af;">データがありません</p>';
+        return;
+      }
+      
       const maxValue = Math.max(...data.map(d => d.value));
       
       let chartHTML = '';
