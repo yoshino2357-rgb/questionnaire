@@ -4,23 +4,45 @@
   <meta charset="UTF-8">
   <title>アンケート集約アプリ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Tailwind CSS CDN（必要に応じて） -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- SheetJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
-<body>
-  <h1>アンケート共有アプリ</h1>
-  <input type="file" id="file-upload" accept=".xlsx,.xls" class="btn">
-  <button id="reset-btn" class="btn">データリセット</button>
-  <div id="status"></div>
-  <div id="chart-container">
-    <canvas id="result-chart"></canvas>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+  <div class="max-w-7xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+      <h1 class="text-4xl font-bold text-gray-800 mb-2">📊 アンケート集約アプリ</h1>
+      <p class="text-gray-600 mb-6">Microsoftフォームのデータを全員で共有・閲覧</p>
+      <div class="flex gap-4 items-center">
+        <label class="flex-1">
+          <input type="file" accept=".xlsx,.xls" id="file-upload" class="hidden" />
+          <div id="upload-btn" class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-center font-semibold transition-colors">
+            📁 Excelファイルをアップロード
+          </div>
+        </label>
+        <button id="reset-btn" class="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors hidden">
+          🗑️ データリセット
+        </button>
+      </div>
+      <p class="text-sm text-gray-500 mt-4">
+        ⚠️ アップロードしたデータは全員が閲覧できます
+      </p>
+      <div id="status" class="mt-4 text-sm font-semibold"></div>
+    </div>
+    <div id="summary"></div>
+    <div id="questions"></div>
+    <div id="no-data" class="bg-white rounded-2xl shadow-xl p-12 text-center">
+      <div class="text-6xl mb-4">📊</div>
+      <h3 class="text-2xl font-bold text-gray-800 mb-2">データがまだありません</h3>
+      <p class="text-gray-600">上のボタンからExcelファイルをアップロードしてください</p>
+    </div>
   </div>
+
   <script>
-    // Firebase設定
+    // Firebase初期化
     const firebaseConfig = {
       apiKey: "AIzaSyA5iITOYcaJ5qwl8tlOgvMOstpIqYgPeYs",
       authDomain: "questionnaire-4306a.firebaseapp.com",
@@ -31,100 +53,277 @@
       appId: "1:818511321932:web:e96e26a66e4b1bd7534de9",
       measurementId: "G-44DRTCMCC1"
     };
+
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    const database = firebase.database();
+    const surveyRef = database.ref('survey-data');
 
-    // データ保存
+    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
+    // ステータス表示
+    function showStatus(message, type = 'info') {
+      const status = document.getElementById('status');
+      const colors = {
+        info: 'text-blue-600',
+        success: 'text-green-600',
+        error: 'text-red-600'
+      };
+      status.className = `mt-4 text-sm font-semibold ${colors[type]}`;
+      status.textContent = message;
+    }
+
+    // Firebaseからデータをリアルタイムで取得
+    surveyRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      renderUI(data);
+      if (data) {
+        showStatus('✅ データ同期完了（全員と共有中）', 'success');
+      }
+    });
+
+    // Firebaseにデータを保存
     function saveSurveyData(data) {
-      db.ref('survey-data').set(data);
-    }
-    // データ取得
-    function loadSurveyData(callback) {
-      db.ref('survey-data').once('value').then(snapshot => {
-        callback(snapshot.val());
-      });
-    }
-    // データリセット
-    function resetSurveyData() {
-      db.ref('survey-data').remove();
+      surveyRef.set(data)
+        .then(() => {
+          showStatus('✅ アップロード完了！全員が結果を見られるようになりました', 'success');
+        })
+        .catch((error) => {
+          showStatus('❌ データの保存に失敗しました', 'error');
+          console.error(error);
+        });
     }
 
-    // グラフ描画
-    let chart;
-    function renderChart(labels, counts) {
-      const ctx = document.getElementById('result-chart').getContext('2d');
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: '回答数',
-            data: counts,
-            backgroundColor: 'rgba(54, 162, 235, 0.5)'
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y: { beginAtZero: true }
-          }
-        }
+    // Firebaseのデータをリセット
+    function resetSurveyData() {
+      surveyRef.remove()
+        .then(() => {
+          showStatus('✅ データをリセットしました', 'success');
+        })
+        .catch((error) => {
+          showStatus('❌ データの削除に失敗しました', 'error');
+          console.error(error);
+        });
+    }
+
+    // Excelデータの処理
+    function processExcelData(rawData) {
+      const columns = Object.keys(rawData[0]);
+      const questions = columns.filter(col =>
+        !col.includes('ID') &&
+        !col.includes('開始時刻') &&
+        !col.includes('完了時刻') &&
+        !col.includes('電子メール') &&
+        !col.includes('名前')
+      );
+      const aggregated = questions.map(question => {
+        const answers = rawData.map(row => row[question]).filter(a => a !== null && a !== undefined && a !== '');
+        const answerCounts = {};
+        answers.forEach(answer => {
+          const key = String(answer).trim();
+          answerCounts[key] = (answerCounts[key] || 0) + 1;
+        });
+        const chartData = Object.entries(answerCounts)
+          .map(([answer, count]) => ({
+            name: answer.length > 30 ? answer.substring(0, 30) + '...' : answer,
+            fullName: answer,
+            count: count,
+            percentage: ((count / answers.length) * 100).toFixed(1)
+          }))
+          .sort((a, b) => b.count - a.count);
+        return {
+          question,
+          totalResponses: answers.length,
+          chartData,
+          answerCounts
+        };
       });
+      return {
+        totalSubmissions: rawData.length,
+        uploadDate: new Date().toLocaleString('ja-JP'),
+        questions: aggregated
+      };
     }
 
     // UI描画
-    function renderUI() {
-      loadSurveyData(function(data) {
-        const status = document.getElementById('status');
-        if (!data) {
-          status.textContent = 'データがありません。Excelファイルをアップロードしてください。';
-          renderChart([], []);
-          return;
-        }
-        status.textContent = '現在の集計結果:';
-        // 例: data = { "A": 5, "B": 3, "C": 2 }
-        const labels = Object.keys(data);
-        const counts = Object.values(data);
-        renderChart(labels, counts);
+    function renderUI(data) {
+      const summary = document.getElementById('summary');
+      const questions = document.getElementById('questions');
+      const noData = document.getElementById('no-data');
+      const resetBtn = document.getElementById('reset-btn');
+      summary.innerHTML = '';
+      questions.innerHTML = '';
+      if (!data) {
+        noData.style.display = '';
+        resetBtn.classList.add('hidden');
+        return;
+      }
+      noData.style.display = 'none';
+      resetBtn.classList.remove('hidden');
+      
+      // 概要
+      summary.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+          <h2 class="text-2xl font-bold text-gray-800 mb-4">📈 概要</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-blue-50 p-6 rounded-xl">
+              <div class="text-sm text-blue-600 font-semibold mb-1">総回答数</div>
+              <div class="text-4xl font-bold text-blue-700">${data.totalSubmissions}</div>
+            </div>
+            <div class="bg-green-50 p-6 rounded-xl">
+              <div class="text-sm text-green-600 font-semibold mb-1">質問数</div>
+              <div class="text-4xl font-bold text-green-700">${data.questions.length}</div>
+            </div>
+            <div class="bg-purple-50 p-6 rounded-xl">
+              <div class="text-sm text-purple-600 font-semibold mb-1">アップロード日時</div>
+              <div class="text-lg font-bold text-purple-700">${data.uploadDate}</div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // 質問ごとの表示
+      data.questions.forEach((q, idx) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = "bg-white rounded-2xl shadow-xl p-8 mb-8";
+        qDiv.innerHTML = `
+          <h3 class="text-xl font-bold text-gray-800 mb-2">Q${idx + 1}. ${q.question}</h3>
+          <p class="text-gray-600 mb-6">回答数: ${q.totalResponses}件</p>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+              <h4 class="font-semibold text-gray-700 mb-4">棒グラフ</h4>
+              <canvas id="bar-${idx}" height="300"></canvas>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-700 mb-4">円グラフ</h4>
+              <canvas id="pie-${idx}" height="300"></canvas>
+            </div>
+          </div>
+          <div class="mt-6">
+            <h4 class="font-semibold text-gray-700 mb-3">詳細データ</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-gray-100">
+                    <th class="border p-3 font-semibold">回答</th>
+                    <th class="border p-3 font-semibold">件数</th>
+                    <th class="border p-3 font-semibold">割合</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${q.chartData.map(item => `
+                    <tr class="hover:bg-gray-50">
+                      <td class="border p-3">${item.fullName}</td>
+                      <td class="border p-3">${item.count}</td>
+                      <td class="border p-3">${item.percentage}%</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        questions.appendChild(qDiv);
+        
+        // 棒グラフ
+        new Chart(document.getElementById(`bar-${idx}`), {
+          type: 'bar',
+          data: {
+            labels: q.chartData.map(d => d.name),
+            datasets: [{
+              label: '件数',
+              data: q.chartData.map(d => d.count),
+              backgroundColor: COLORS,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const i = context.dataIndex;
+                    return `${q.chartData[i].fullName}: ${q.chartData[i].count}件 (${q.chartData[i].percentage}%)`;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+            }
+          }
+        });
+        
+        // 円グラフ
+        new Chart(document.getElementById(`pie-${idx}`), {
+          type: 'pie',
+          data: {
+            labels: q.chartData.map(d => d.name),
+            datasets: [{
+              data: q.chartData.map(d => d.count),
+              backgroundColor: COLORS,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const i = context.dataIndex;
+                    return `${q.chartData[i].fullName}: ${q.chartData[i].count}件 (${q.chartData[i].percentage}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
       });
     }
 
-    // Excelファイルアップロード
+    // ファイルアップロード
+    document.getElementById('upload-btn').onclick = () => {
+      document.getElementById('file-upload').click();
+    };
+    
     document.getElementById('file-upload').onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      // 1列目の値を集計
-      const counts = {};
-      for (let i = 1; i < json.length; i++) {
-        const val = json[i][0];
-        if (!val) continue;
-        counts[val] = (counts[val] || 0) + 1;
+      
+      const uploadBtn = document.getElementById('upload-btn');
+      uploadBtn.textContent = 'アップロード中...';
+      showStatus('⏳ ファイルを処理中...', 'info');
+      
+      try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        if (jsonData.length === 0) {
+          alert('データが空です');
+          uploadBtn.textContent = '📁 Excelファイルをアップロード';
+          showStatus('', 'info');
+          return;
+        }
+        
+        const processedData = processExcelData(jsonData);
+        saveSurveyData(processedData);
+      } catch (error) {
+        alert('ファイルの読み込みに失敗しました');
+        showStatus('❌ エラーが発生しました', 'error');
+        console.error(error);
       }
-      saveSurveyData(counts);
-      alert('アップロード完了！全員が結果を見られるようになりました');
-      renderUI();
+      
+      uploadBtn.textContent = '📁 Excelファイルをアップロード';
     };
 
     // データリセット
     document.getElementById('reset-btn').onclick = () => {
       if (confirm('本当にデータをリセットしますか？全員のデータが削除されます。')) {
         resetSurveyData();
-        alert('データをリセットしました');
-        renderUI();
       }
     };
-
-    // 初期表示
-    renderUI();
-
-    // 他の人の変更もリアルタイム反映
-    db.ref('survey-data').on('value', () => renderUI());
   </script>
 </body>
 </html>
-
