@@ -2,24 +2,14 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>アンケート共有アプリ</title>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <!-- Chart.js（グラフ用） -->
+  <title>アンケート集約アプリ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Tailwind CSS CDN（必要に応じて） -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- xlsx.js（Excel読み込み用） -->
+  <!-- SheetJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
- <style>
-    body { 
-      font-family: sans-serif; 
-      margin: 2em; 
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-    }
-    #chart-container { width: 600px; height: 400px; }
-    .btn { padding: 0.5em 1em; margin: 0.5em; }
-  </style>
 </head>
 <body>
   <h1>アンケート共有アプリ</h1>
